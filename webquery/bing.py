@@ -5,7 +5,7 @@ import random
 import string
 from glob import glob
 from time import perf_counter
-from . import process_question_with_teprolin
+from . import process_question_with_teprolin, frequent_verbs
 
 
 _bing_search_url = 'https://api.bing.microsoft.com/v7.0/search?q=#QUERY#&cc=RO'
@@ -100,10 +100,9 @@ def _generate_query_1(tokens: list) -> str:
 
     query = []
 
-    # 1. Find root
-    for tid, wf, ctag, head, deprel in tokens:
-        if ctag == 'NOUN' or ctag == 'PROPN' or \
-                ctag == 'ADJ' or ctag == 'VERB':
+    for tid, wf, lem, ctag, head, deprel in tokens:
+        if ctag == 'NOUN' or ctag == 'PROPN' or ctag == 'ADJ' or \
+                (ctag == 'VERB' and lem not in frequent_verbs):
             query.append(wf)
         # end if
     # end for

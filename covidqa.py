@@ -24,5 +24,5 @@ def covid_qa_system(question: str) -> list:
 
 
 if __name__ == '__main__':
-    question = 'Dacă sunt însărcinată și am Covid, bebelușul meu este infectat?'
+    question = 'Cum pot face Covid?'
     qa_results = covid_qa_system(question)

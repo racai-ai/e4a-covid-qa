@@ -3,6 +3,9 @@ import requests
 import json
 
 teprolin_url = 'http://relate.racai.ro:5000/process'
+frequent_verbs = set([
+    'fi', 'avea', 'putea'
+])
 
 def process_question_with_teprolin(question: str) -> list:
     """Takes an input questions and does POS tagging and dependency parsing
@@ -18,7 +21,7 @@ def process_question_with_teprolin(question: str) -> list:
         result = []
 
         for tk in tokens:
-            result.append((tk['_id'], tk['_wordform'], tk['_ctg'], tk['_head'], tk['_deprel']))
+            result.append((tk['_id'], tk['_wordform'], tk['_lemma'], tk['_ctg'], tk['_head'], tk['_deprel']))
         # end for
 
         return result
