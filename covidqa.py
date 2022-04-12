@@ -26,4 +26,3 @@ def covid_qa_system(question: str) -> list[dict]:
 if __name__ == '__main__':
     question = 'Dacă sunt însărcinată și am Covid, bebelușul meu este infectat?'
     qa_results = covid_qa_system(question)
-    a = 1
