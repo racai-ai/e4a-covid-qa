@@ -158,8 +158,8 @@ def bing_search_v7(question: str) -> list:
             _bing_cache[q_query] = results
             _cache_additions += 1
 
-            #if _cache_additions % 10 == 0:
-            _save_cache_file(_bing_cache_file)
+            if _cache_additions % 10 == 0:
+                _save_cache_file(_bing_cache_file)
             # end if
 
             return results
