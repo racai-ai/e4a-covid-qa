@@ -2,7 +2,7 @@ from webquery.bing import bing_search_v7
 from bertqa.qaapi import bert_response_highlight
 
 
-def covid_qa_system(question: str) -> list[dict]:
+def covid_qa_system(question: str) -> list:
     """Works by doing question analysis, search with Bing for most relevant documents
     and uses a fine-tuned BERT model to highlight the answer in the returned snippets."""
     processed_question = bing_search_v7(question)
