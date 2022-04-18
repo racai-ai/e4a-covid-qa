@@ -129,7 +129,6 @@ def bing_search_v7(question: str, given_query: str) -> list:
 
     # 2. Generate query
     q_query = _generate_query_1(q_tokens)
-    #q_query = question
     ndq_query = remove_diacritics(q_query)
     
     if q_query == ndq_query:
