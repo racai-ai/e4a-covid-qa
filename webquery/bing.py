@@ -5,11 +5,13 @@ import random
 import string
 from glob import glob
 from time import perf_counter
-from . import process_question_with_teprolin, frequent_verbs
+from . import process_question_with_teprolin, \
+    remove_diacritics, frequent_verbs
 
 
 _bing_search_url = 'https://api.bing.microsoft.com/v7.0/search?q=#QUERY#&cc=RO'
 _bing_api_key = os.getenv('BING_SEARCH_V7_KEY')
+_debug = True
 
 # 1. Check for valid Bing API key
 if not _bing_api_key:
@@ -46,6 +48,7 @@ def _add_cache_file(cache_file: str):
                 hit_dict['url'] = f.readline().strip()
                 hit_dict['snippet'] = f.readline().strip()
                 hit_dict['date'] = f.readline().strip()
+                hit_dict['rank'] = len(query_hits)
                 query_hits.append(hit_dict)
                 line = f.readline().strip()
             # end while
@@ -102,6 +105,7 @@ def _generate_query_1(tokens: list) -> str:
 
     for tid, wf, lem, ctag, head, deprel in tokens:
         if ctag == 'NOUN' or ctag == 'PROPN' or ctag == 'ADJ' or \
+                ctag == 'NUM' or ctag == 'ADV' or \
                 (ctag == 'VERB' and lem not in frequent_verbs):
             query.append(wf)
         # end if
@@ -110,33 +114,71 @@ def _generate_query_1(tokens: list) -> str:
     return ' '.join(query)
 
 
-def bing_search_v7(question: str) -> list:
-    global _cache_additions
-
+def bing_search_v7(question: str, given_query: str) -> list:
     """Performs a Bing V7 search for the given question.
-    If question is in cache, no search request is sent."""
+    If question is in cache, no search request is sent.
+    If `given_query` is not empty, use it instead of generating the query.
+    This is useful when testing the QA system with human generated queries."""
+
+    if given_query:
+        return _do_the_web_search(given_query)
+    # end if
 
     # 1. Process question
     q_tokens = process_question_with_teprolin(question)
 
     # 2. Generate query
     q_query = _generate_query_1(q_tokens)
+    #q_query = question
+    ndq_query = remove_diacritics(q_query)
+    
+    if q_query == ndq_query:
+        if q_query in _bing_cache:
+            # Spare Bing API querying...
+            return _bing_cache[q_query]
+        else:
+            return _do_the_web_search(q_query)
+        # end if
+    else:
+        results = []
 
-    if q_query in _bing_cache:
-        # Spare Bing API querying...
-        return _bing_cache[q_query]
+        if q_query in _bing_cache:
+            # Spare Bing API querying...
+            results.extend(_bing_cache[q_query])
+        else:
+            results.extend(_do_the_web_search(q_query))
+        # end if
+
+        if ndq_query in _bing_cache:
+            # Spare Bing API querying...
+            results.extend(_bing_cache[ndq_query])
+        else:
+            results.extend(_do_the_web_search(ndq_query))
+        # end if
+
+        return _remove_duplicate_hits(results)
     # end if
 
-    # 3. Populate query link
-    bing_query_url = _bing_search_url.replace('#QUERY#', q_query)
 
-    # 4. Do the query
-    print(f'Querying Bing with query [{q_query}]', file=sys.stderr, flush=True)
-    start = perf_counter()
+def _do_the_web_search(query: str) -> list:
+    """Does the Bing search and returns the list of results."""
+    global _cache_additions
+
+    # 1. Populate query link
+    bing_query_url = _bing_search_url.replace('#QUERY#', query)
+
+    if _debug:
+        # 2. Do the query
+        print(f'Querying Bing with query [{query}]', file=sys.stderr, flush=True)
+        start = perf_counter()
+    # end if
     response = requests.get(bing_query_url, headers={
                             "Ocp-Apim-Subscription-Key": _bing_api_key})
-    elapsed = 1000 * (perf_counter() - start)
-    print(f' -> took {elapsed:.3f}ms')
+
+    if _debug:
+        elapsed = 1000 * (perf_counter() - start)
+        print(f' -> took {elapsed:.3f}ms', file=sys.stderr, flush=True)
+    # end if
 
     if response.status_code == 200:
         bing_json = response.json()
@@ -144,17 +186,19 @@ def bing_search_v7(question: str) -> list:
         if 'webPages' in bing_json and \
                 'value' in bing_json['webPages']:
             results = []
+            rank = 0
 
             for hit in bing_json['webPages']['value']:
-                hit_dict = {}
+                hit_dict = {'rank': rank}
                 hit_dict['name'] = hit['name']
                 hit_dict['url'] = hit['url']
                 hit_dict['snippet'] = hit['snippet']
                 hit_dict['date'] = hit['dateLastCrawled']
                 results.append(hit_dict)
+                rank += 1
             # end for
 
-            _bing_cache[q_query] = results
+            _bing_cache[query] = results
             _cache_additions += 1
 
             if _cache_additions % 10 == 0:
@@ -164,6 +208,20 @@ def bing_search_v7(question: str) -> list:
             return results
     else:
         print(
-            f'Error querying Bing with [{q_query}; error code {response.status_code}]',
+            f'Error querying Bing with [{query}; error code {response.status_code}]',
             file=sys.stderr, flush=True)
         return []
+
+
+def _remove_duplicate_hits(search_results: list) -> list:
+    results = []
+    url_set = set()
+
+    for hit in search_results:
+        if hit['url'] not in url_set:
+            results.append(hit)
+            url_set.add(hit['url'])
+        # end if
+    # end for
+
+    return results
