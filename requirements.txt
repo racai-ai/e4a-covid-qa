@@ -2,3 +2,4 @@ Flask
 Flask-RESTful
 uwsgi
 requests
+termcolor
